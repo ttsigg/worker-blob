@@ -70,6 +70,7 @@ message is lost; check `wrangler tail`).
 src/
   index.ts          # worker entry, email parsing, commit assembly, GitHub calls
   ai.ts             # Workers AI calls, prompts, JSON parsing
+  exif.ts           # pure-JS metadata stripper for JPEG / PNG / WebP
 wrangler.toml       # Worker config, vars, observability
 package.json        # pnpm scripts + deps
 tsconfig.json       # strict TS, @cloudflare/workers-types
@@ -83,7 +84,10 @@ tsconfig.json       # strict TS, @cloudflare/workers-types
 - `VISION_MODEL` / `TEXT_MODEL` in `src/ai.ts` — swap if CF ships stronger models.
   Long-term simplification: one multimodal Gemma call replacing both passes.
 - `MAX_ATTACHMENTS`, `MAX_ATTACHMENT_BYTES` in `wrangler.toml` — size gates.
-- EXIF is **not** stripped from images. (Needs a WASM image lib; tracked.)
+- `stripMetadata()` in `src/exif.ts` — pure-JS EXIF/XMP/IPTC/text stripper.
+  Supports JPEG, PNG, WebP. HEIC/GIF/TIFF pass through unchanged. Stripping
+  runs before AI captioning and before the GitHub blob upload, so GPS/camera
+  metadata never leaves the worker.
 - Email Routing caps messages at 25 MiB (~18 MB of attachments post-base64).
   Use "Large" on phone photos, not "Actual Size".
 - Slug collisions (same AI-guessed title twice in one day) fail at branch
@@ -103,6 +107,8 @@ tsconfig.json       # strict TS, @cloudflare/workers-types
 - **Input caps** on message size, attachment count, and per-attachment size.
 - **Non-image attachments dropped silently**; only `image/*` MIME types
   reach the vision model.
+- **EXIF/metadata stripped** from JPEG/PNG/WebP before AI or GitHub see the
+  bytes — GPS, camera serials, author fields, and text chunks are removed.
 
 ## Forgejo migration note
 

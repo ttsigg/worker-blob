@@ -28,6 +28,7 @@ Every draft lands with:
 src/
   index.ts        # worker entry, email parsing, GitHub commit assembly
   ai.ts           # Workers AI calls, prompts, JSON parsing
+  exif.ts         # pure-JS metadata stripper (JPEG / PNG / WebP)
 wrangler.toml     # CF Worker config (bindings, vars, observability)
 package.json      # pnpm scripts + deps
 .dev.vars.example # template for local secrets (copy to .dev.vars)
@@ -126,6 +127,24 @@ worker; this is additive.
   are tunable in `wrangler.toml`.
 - Non-image attachments are silently dropped.
 
+### EXIF / metadata stripping
+
+Every inbound image passes through `src/exif.ts` before it's sent to the AI
+model or committed to the repo:
+
+- **JPEG:** drops `APP1` (EXIF + XMP), `APP12` (Ducky), `APP13`
+  (Photoshop/IPTC), and `COM` comment markers. Keeps `APP0` (JFIF),
+  `APP2` (ICC profile), and `APP14` (Adobe) so color rendering is unchanged.
+- **PNG:** drops `eXIf`, `tEXt`, `iTXt`, `zTXt` chunks. Keeps everything
+  else (including `iCCP` / `sRGB` / `gAMA`).
+- **WebP:** drops `EXIF` and `XMP ` chunks, clears their flag bits in
+  `VP8X`, and fixes the `RIFF` header size.
+- **HEIC / GIF / TIFF / unknown:** pass through with a `wrangler tail` log
+  line. Prefer JPEG/PNG/WebP uploads.
+
+GPS coordinates, camera serials, device names, and author fields are removed
+before the image leaves the worker.
+
 ### Data flow and PII
 
 - The `From:` address is redacted in logs (`m***@example.com`).
@@ -173,7 +192,9 @@ git checkout main && git merge draft/2026-04-23-some-title && git push
 
 - Email Routing caps messages at 25 MiB (~18 MB of raw attachments after
   base64 overhead). Use "Large" on phone photos.
-- Image EXIF is not stripped. (Requires a WASM image lib; tracked.)
+- HEIC uploads are not metadata-stripped (complex container format); they
+  pass through unchanged with a log warning. iOS "Large" sharing usually
+  produces JPEG, which is cleaned.
 - Outbound alerts pending Cloudflare Email Service beta access.
 - No per-sender rate limit. Add a KV counter if abuse becomes an issue.
 

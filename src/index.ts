@@ -7,6 +7,7 @@
 
 import PostalMime from "postal-mime";
 import { captionImage, organizeDraft, type OrganizedDraft } from "./ai.js";
+import { stripMetadata } from "./exif.js";
 
 interface Env {
   AI: { run(model: string, input: unknown): Promise<unknown> };
@@ -102,13 +103,20 @@ async function handle(message: ForwardableEmailMessage, env: Env): Promise<void>
   for (const att of rawAttachments) {
     const mime = (att.mimeType ?? "").toLowerCase();
     if (!mime.startsWith("image/")) continue; // silently drop non-images
-    const bytes = toBytes(att.content);
-    if (!bytes) continue;
-    if (bytes.byteLength > maxAttachmentBytes) {
+    const raw = toBytes(att.content);
+    if (!raw) continue;
+    if (raw.byteLength > maxAttachmentBytes) {
       message.setReject("attachment too large");
       return;
     }
-    images.push({ bytes, ext: extForMime(mime) });
+    // Strip EXIF/XMP/IPTC/text metadata before the bytes go anywhere else —
+    // AI captioning and GitHub both see the cleaned file. Unsupported formats
+    // (HEIC, GIF, TIFF) pass through unchanged with a log line.
+    const cleaned = stripMetadata(mime, raw);
+    if (cleaned.format === "unknown") {
+      console.warn(`unsupported image format for metadata strip: ${mime} (${raw.byteLength}B)`);
+    }
+    images.push({ bytes: cleaned.bytes, ext: extForMime(mime) });
   }
 
   // 6. AI pass — captions first (cheap, parallel), then structure the body.
