@@ -1,0 +1,30 @@
+name = "blog-intake"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers AI binding: env.AI (see src/ai.ts)
+[ai]
+binding = "AI"
+
+# Public, non-secret config. Secrets go through `wrangler secret put`.
+# GITHUB_TOKEN  — fine-grained PAT (Contents R/W + Metadata R), required.
+# ALLOWED_SENDERS — comma-separated email allowlist, optional but recommended.
+#                   If unset or empty, the worker rejects all inbound mail.
+[vars]
+GITHUB_OWNER = "ttsigg"
+SITES = "timsiggins.com,auxdev.net"
+DEFAULT_BRANCH = "main"
+COMMIT_AUTHOR_NAME = "blog-intake"
+COMMIT_AUTHOR_EMAIL = "blog-intake@users.noreply.github.com"
+MAX_ATTACHMENT_BYTES = "20971520"  # 20 MiB post-decode
+MAX_ATTACHMENTS = "12"
+
+# Observability — keep logs for debugging; no request data beyond what we log.
+[observability]
+enabled = true
+
+# Email Routing binding is configured in the CF dashboard (Email → Email
+# Routing → rule: `drafts@input.<site>` → Send to Worker → blog-intake).
+# No explicit binding is needed in wrangler.toml; the `email` handler below
+# receives ForwardableEmailMessage events.

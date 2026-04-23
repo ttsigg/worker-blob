@@ -1,0 +1,9 @@
+# Copy to .dev.vars for `wrangler dev`. Production uses `wrangler secret put`.
+# Never commit .dev.vars — it is .gitignored.
+
+GITHUB_TOKEN="ghp_replace_me"
+
+# Sender allowlist. At least one of the two must be non-empty, otherwise the
+# worker default-denies every inbound message.
+ALLOWED_SENDERS="me@timsiggins.com"
+ALLOWED_SENDER_DOMAINS=""
