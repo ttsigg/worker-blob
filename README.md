@@ -76,8 +76,11 @@ pnpm wrangler secret put REQUIRE_DKIM_PASS     # optional — "true" to enable
 ```
 
 `ALLOWED_SENDERS` is a comma-separated list of exact addresses, e.g.
-`me@timsiggins.com,assistant@auxdev.net`. `ALLOWED_SENDER_DOMAINS` is a
-comma-separated list of bare domains, e.g. `timsiggins.com`.
+`you@example.com,assistant@example.org`. `ALLOWED_SENDER_DOMAINS` is a
+comma-separated list of bare domains, e.g. `example.com`.
+
+Set them only via `wrangler secret put` (see step 3) so your real addresses
+never land in the repo.
 
 **If both lists are empty or unset, the worker rejects every inbound message.**
 This is the default-deny posture — you must opt in to a sender before anything
@@ -91,14 +94,15 @@ pnpm deploy
 
 ### 5. Smoke test
 
-Email `drafts@input.timsiggins.com` from an allowlisted address:
+Email `drafts@input.<your-site>` (the recipient configured in your Email
+Routing rule) from an allowlisted address:
 
 - **Subject:** anything (used only if Gemma returns no title)
 - **Body:** a paragraph of dictation
 - Optionally attach a photo (use "Large", not "Actual Size")
 
 Watch `pnpm tail` while you send. Within a minute you should see
-`Committed draft/2026-04-23-some-title to timsiggins.com (structured=true, images=1)`.
+`Committed draft/2026-04-23-some-title to <your-site> (structured=true, images=1)`.
 
 ## Security
 

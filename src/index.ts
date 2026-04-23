@@ -167,7 +167,7 @@ function isAllowedSender(sender: string, env: Env): boolean {
 }
 
 function normalizeAddress(raw: string): string {
-  // "Tim Siggins <me@example.com>" → "me@example.com"
+  // "Display Name <user@example.com>" → "user@example.com"
   const m = raw.match(/<([^>]+)>/);
   return (m ? m[1] : raw).trim().toLowerCase();
 }

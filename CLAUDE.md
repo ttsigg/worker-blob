@@ -25,9 +25,9 @@ pnpm deploy                                     # wrangler deploy
 pnpm tail                                       # wrangler tail — stream live logs
 ```
 
-Smoke test by emailing `drafts@input.timsiggins.com` from an allowlisted
+Smoke test by emailing `drafts@input.<your-site>` from an allowlisted
 address (body = dictation, optional photo attachment). A log line like
-`Committed draft/YYYY-MM-DD-slug to timsiggins.com (structured=true, images=1)`
+`Committed draft/YYYY-MM-DD-slug to <your-site> (structured=true, images=1)`
 confirms success.
 
 ## Architecture
