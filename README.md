@@ -92,6 +92,9 @@ reaches the AI pipeline or GitHub.
 pnpm deploy
 ```
 
+Or push to `main` and let GitHub Actions deploy — see
+[Deploying via GitHub Actions](#deploying-via-github-actions) below.
+
 ### 5. Smoke test
 
 Email `drafts@input.<your-site>` (the recipient configured in your Email
@@ -103,6 +106,65 @@ Routing rule) from an allowlisted address:
 
 Watch `pnpm tail` while you send. Within a minute you should see
 `Committed draft/2026-04-23-some-title to <your-site> (structured=true, images=1)`.
+
+## Deploying via GitHub Actions
+
+`.github/workflows/deploy.yml` runs `pnpm typecheck` and
+`wrangler deploy` on every push to `main` (and on manual dispatch from the
+Actions tab). It only ships code and `wrangler.toml` changes — Worker
+secrets stay on Cloudflare and are never read by CI.
+
+### What goes where
+
+| Kind | Where | Name | Purpose |
+| --- | --- | --- | --- |
+| GitHub repo secret | GitHub → Settings → Secrets and variables → Actions | `CLOUDFLARE_API_TOKEN` | Lets the Action run `wrangler deploy`. |
+| GitHub repo secret | GitHub → Settings → Secrets and variables → Actions | `CLOUDFLARE_ACCOUNT_ID` | Target Cloudflare account for the Worker. |
+| Cloudflare Worker secret | `wrangler secret put` (local, one-time) | `GITHUB_TOKEN` | Fine-grained PAT for the Zola repos. |
+| Cloudflare Worker secret | `wrangler secret put` (local, one-time) | `ALLOWED_SENDERS` | Sender allowlist (required; default-deny otherwise). |
+| Cloudflare Worker secret | `wrangler secret put` (local, optional) | `ALLOWED_SENDER_DOMAINS` | Extra domain-wide allowlist. |
+| Cloudflare Worker secret | `wrangler secret put` (local, optional) | `REQUIRE_DKIM_PASS` | Set to `"true"` to enforce DKIM. |
+| Cloudflare Worker var | `wrangler.toml` `[vars]` | `GITHUB_OWNER`, `SITES`, `DEFAULT_BRANCH`, `COMMIT_AUTHOR_*`, `MAX_ATTACHMENT*` | Non-secret config, committed to the repo. |
+
+The Worker secrets are the same ones covered in [Setup step 3](#3-secrets).
+CI does not push or rotate them — it just redeploys the script. If you
+change a secret, run `pnpm wrangler secret put NAME` locally; the value
+persists across deploys.
+
+### Creating the Cloudflare API token
+
+Cloudflare dashboard → **My Profile → API Tokens → Create Token → Edit
+Cloudflare Workers** (template). Scope it as narrowly as possible:
+
+- **Account resources:** include only the account you deploy into.
+- **Zone resources:** `All zones from an account` on the same account
+  (the template needs this to read Workers routes even if you don't
+  use custom domains). Restrict to a specific zone if you prefer.
+- **TTL:** set an expiry (90 days is a good cadence) and calendar a
+  rotation.
+
+Copy the token once it's shown — Cloudflare won't display it again. Paste
+it into the GitHub secret `CLOUDFLARE_API_TOKEN`.
+
+Your **Account ID** is on the right-hand sidebar of the Workers & Pages
+overview page. Paste it into `CLOUDFLARE_ACCOUNT_ID` (also a repo secret
+to avoid exposing it in Actions logs, though it's not highly sensitive on
+its own).
+
+### Running the workflow
+
+- Push to `main`, or trigger it from **Actions → Deploy Worker → Run
+  workflow**.
+- The job runs `pnpm typecheck` first, so a type error blocks the deploy.
+- `concurrency: deploy-worker` serializes overlapping runs — a newer push
+  waits for the in-flight deploy to finish rather than racing it.
+- Docs-only changes (`**.md`, `.gitignore`, `.dev.vars.example`) skip CI.
+
+### Rolling back
+
+`wrangler rollback` from your machine, or re-run an older successful
+workflow run from the Actions UI (it redeploys the commit that run was
+built from).
 
 ## Security
 
