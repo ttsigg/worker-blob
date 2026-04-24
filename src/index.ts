@@ -274,16 +274,16 @@ async function commitToBranch(
   const refResp = await gh(env, `${base}/git/refs/heads/${encodeURIComponent(env.DEFAULT_BRANCH)}`);
   const baseSha: string = refResp.object.sha;
 
-  // 2. Create blobs for each file.
-  const blobs: { path: string; sha: string; mode: "100644" }[] = [];
-  for (const f of files) {
+  // 2. Create blobs for each file. Independent calls — run in parallel so a
+  //    dozen attachments don't eat the email-handler 30s budget in serial RTTs.
+  const blobs = await Promise.all(files.map(async (f) => {
     const body =
       f.encoding === "utf-8"
         ? { content: f.content, encoding: "utf-8" as const }
         : { content: base64Encode(f.content), encoding: "base64" as const };
     const blob = await gh(env, `${base}/git/blobs`, "POST", body);
-    blobs.push({ path: f.path, sha: blob.sha, mode: "100644" });
-  }
+    return { path: f.path, sha: blob.sha as string, mode: "100644" as const };
+  }));
 
   // 3. Create a tree with those blobs, based on the head tree.
   const tree = await gh(env, `${base}/git/trees`, "POST", {
